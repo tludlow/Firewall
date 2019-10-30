@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     // Print out settings that have been set by the command line arguments.
     printf("%s invoked. Settings:\n", argv[0]);
     printf("\tInterface: %s\n\tVerbose: %d\n", args.interface, args.verbose);
-
+    
     // Invoke Intrusion Detection System
     sniff(args.interface, args.verbose);
     return 0;
