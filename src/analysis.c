@@ -116,8 +116,6 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
     //Now to check whether or not the packet coming in is a TCP, HTTP packet which has the host header of "telegraph.co.uk", this is a blacklisted domain.
     int httpPort = 80;
     if (IPHeader->ip_p == IPPROTO_TCP) {
-        printf("Non ntohs port %d\n", TCPHeader->dest);
-            printf("Is ntohs port %d\n", ntohs(TCPHeader->dest));
         if (ntohs(TCPHeader->dest) == 80 || ntohs(TCPHeader->source) == 80) {
             unsigned char *substr = strstr(packetPayload, "Location:");
             if (substr != NULL)
