@@ -2,10 +2,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <pcap.h>
 #include <netinet/if_ether.h>
 
 #include "dispatch.h"
+#include "analysis.h"
 
 
 // Application main sniffing loop
@@ -19,6 +21,11 @@ void sniff(char *interface, int verbose) {
         exit(EXIT_FAILURE);
     } else {
         printf("SUCCESS! Opened %s for capture\n", interface);
+
+        if (signal(SIGINT, finalReport) == SIG_ERR) {
+            fprintf(stderr, "Unable to register SIGINT handler\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Capture packets (very ugly code)
@@ -34,9 +41,9 @@ void sniff(char *interface, int verbose) {
             }
         } else {
             // Optional: dump raw data to terminal
-            // if (verbose) {
-            //     dump(packet, header.len);
-            // }
+            if (verbose) {
+                //dump(packet, header.len);
+            }
             // Dispatch packet for processing
             dispatch(&header, packet, verbose);
         }

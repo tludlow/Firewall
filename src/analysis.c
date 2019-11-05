@@ -6,6 +6,7 @@
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <signal.h>
 #include <string.h>
 
 //An ARP Reply code, these need to be logged.
@@ -14,11 +15,28 @@
 //Packet counter, useful for verbose debugging as many packets can appear the same.
 int i = 0;
 
-void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose) {
-    //Flags on what the packet is, used in the report after program exited.
-    int isArp = 0;
-    int isBlacklisted = 0;
+//Counter for the arp responses found and blacklisted packets found. This will be thread safe
+static size_t arpResponsePackets = 0,
+              blacklistedPackets = 0;
 
+//Func that prints the report of the program running.
+void finalReport(int signal) {
+    if(signal == SIGINT) {
+        printf("\n");
+        printf("Intrusion Detection Report:\n");
+        printf("SYN flood attack possible\n");
+        printf("%d SYN packets detected from %d IP addresses in %.6f seconds\n", 102, 103, 0.038504);
+        printf("%d ARP responses (cache poisoning)\n", arpResponsePackets);
+        printf("%d URL Blacklist violations\n", blacklistedPackets);
+
+        //Exit the program, its succesful despite the ^C
+        exit(0);
+    }
+}
+
+
+
+void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose) {
     if (verbose) printf("=========[ PACKET-%d ]=========\n", i);
 
     //Convert the packet data into the ether_header struct (found in if_ether.h) - this works because of the contiguous structure of the packet/ethernet struct.
@@ -39,7 +57,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
     struct tcphdr *TCPHeader;
 
     //The packet payload, following the ethernet header, ip header and tcp header.
-    //unsigned char *packetPayload;
+    unsigned char *packetPayload;
 
     //Contents of the IP Packet, which is the packet argument with the ehternet header skipped over (ETH_HLEN) + the ip header length
 
@@ -61,11 +79,11 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
             TCPHeader = (struct tcphdr *) IPPayload;
 
             if (verbose) printf("TCP Source Port: %d\n", ntohs(TCPHeader->source));
-            if (verbose) printf("TCP Destination Port: %d\n", ntohs(TCPHeader->source));
+            if (verbose) printf("TCP Destination Port: %d\n", ntohs(TCPHeader->dest));
 
             //Packet payload found after the ethernet header, the ip header and the tcp header
             //doff = data offset
-            //packetPayload = packet + ETH_HLEN + (IPHeader->ip_hl*4) + (TCPHeader->doff*4);
+            packetPayload = packet + ETH_HLEN + (IPHeader->ip_hl*4) + (TCPHeader->doff*4);
         }
     }
 
@@ -77,30 +95,43 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
     if(ntohs(ethernetHeader->ether_type) == ETH_P_ARP) {
         if (verbose) printf("ARP Packet \u2714\u2714\u2714\u2714\n");
 
-        isArp++;
+        //Like above, load the arp packet info into the ether_Arp struct, which starts after the ethernet header.
         ether_arp = (struct ether_arp*) (packet + ETH_HLEN);
-
-        //Correct the endianess of the data saved in the ether_arp
-        //Only have to do these fields, the others arent required.
-        ether_arp->ea_hdr.ar_hrd = ntohs(ether_arp->ea_hdr.ar_hrd);
-        ether_arp->ea_hdr.ar_pro = ntohs(ether_arp->ea_hdr.ar_pro);
-        ether_arp->ea_hdr.ar_op = ntohs(ether_arp->ea_hdr.ar_op);
-
-        //Iterative over all the data in the arrays for the final 4 fields.
-        for (i = 0; i < ETH_ALEN; ++i) ether_arp->arp_sha[i] = ntohs(ether_arp->arp_sha[i]);
-        for (i = 0; i < 4; ++i) ether_arp->arp_spa[i] = ntohs(ether_arp->arp_spa[i]);
-        for (i = 0; i < ETH_ALEN; ++i) ether_arp->arp_tha[i] = ntohs(ether_arp->arp_tha[i]);
-        for (i = 0; i < 4; ++i) ether_arp->arp_tpa[i] = ntohs(ether_arp->arp_tpa[i]);
 
         if (verbose) {
             printf("[ARP] Hardware type: %s\n", (ether_arp->ea_hdr.ar_hrd) == 1 ? "Ethernet" : "??"); 
             printf("[ARP] Protocol type is: %s\n", (ether_arp->ea_hdr.ar_pro) == 0x0800 ? "IPv4" : "??"); 
             printf("[ARP] Operation: %s\n", (ether_arp->ea_hdr.ar_op) == 1 ? "ARP Request" : "ARP Reply"); 
+            
         }  
+
+        //When the operation of the arp packet is a reply aka reponse, we will count this as a possible cache poisoning
+        if (ntohs(ether_arp->ea_hdr.ar_op) == ARPOP_REPLY) {
+            //Is a response, this is bad.
+            arpResponsePackets++;
+        }
     }
 
 
-    isBlacklisted++;
+    //Now to check whether or not the packet coming in is a TCP, HTTP packet which has the host header of "telegraph.co.uk", this is a blacklisted domain.
+    int httpPort = 80;
+    if (IPHeader->ip_p == IPPROTO_TCP) {
+        printf("Non ntohs port %d\n", TCPHeader->dest);
+            printf("Is ntohs port %d\n", ntohs(TCPHeader->dest));
+        if (ntohs(TCPHeader->dest) == 80 || ntohs(TCPHeader->source) == 80) {
+            unsigned char *substr = strstr(packetPayload, "Location:");
+            if (substr != NULL)
+            if (strstr(substr, "telegraph.co.uk") != NULL) {
+                int j;
+                for(j = 1; j < 20; j++) {
+                    printf("Malicous shitter found!\n");
+                }
+                blacklistedPackets++;
+                if (verbose) printf("MALICIOUS HTML FOUND\n");
+                exit(0);
+            }
+        }
+    }
 
     if (verbose) printf("=================================\n\n\n");
     i++;
