@@ -8,7 +8,7 @@ OBJS := $(SRCS:./%.c=$(BUILDDIR)/%.o)
 
 CC:=gcc
 
-CFLAGS := -g -DDEBUG -Wall
+CFLAGS := -g -DDEBUG -Wall -w
 LDFLAGS := -lpthread -lpcap
 
 .PHONY: all clean

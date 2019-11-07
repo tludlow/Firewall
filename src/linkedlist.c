@@ -34,7 +34,7 @@ Node *createNode(long sourceIP) {
         return NULL;
     }
 
-    gettimeofday(&(newNode->timeReceived), NULL);;
+    gettimeofday(&(newNode->timeReceived), NULL);
     newNode->sourceIP = sourceIP;
     newNode->next = NULL;
 
@@ -53,35 +53,27 @@ List *createList() {
     return list;
 }
 
-//Add a node to a list.
+//Add a node to a list. Will only add if the packet is unique.
 void add(List *list, long sourceIP) {
     Node *current = NULL;
 
     if (list->head == NULL) {
+        //Cant be non unique, its the only thing in the list.
         list->head = createNode(sourceIP);
     } else {
         current = list->head; 
 
         while (current->next != NULL) {
             current = current->next;
+
+            if (current->sourceIP == sourceIP) {
+                //Is non unique, we dont need to add..
+                return;
+            }
         }
 
         current->next = createNode(sourceIP);
     }
-}
-
-//Free the memory of the list, this includes the nodes too
-void freeListMemory(List *list) {
-    Node *current = list->head;
-    Node *next = current;
-
-    while (current != NULL) {
-        next = current->next;
-        free(current);
-        current = next;
-    }
-
-    free(list);
 }
 
 
@@ -90,11 +82,11 @@ void printList(List *list) {
     Node *current = list->head;
 
     if(list->head == NULL) {
-        return;
+        printf("[EMPTY LIST]");
     }
 
     for (; current != NULL; current = current->next) {
-        printf("[%ld, %d]->", current->sourceIP, current->timeReceived.tv_sec);
+        printf("[%ld, %d]->", current->sourceIP, current->timeReceived.tv_usec);
     }
 
     printf("\n");

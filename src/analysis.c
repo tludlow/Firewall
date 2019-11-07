@@ -17,31 +17,12 @@
 int i = 0;
 
 //Counter for the arp responses found and blacklisted packets found. This will be thread safe
-static size_t arpResponsePackets = 0,
-              blacklistedPackets = 0;
+volatile unsigned long arpResponsePackets = 0;
+volatile unsigned long blacklistedPackets = 0;
+volatile unsigned long synPackets = 0;
 
 
-//Linked list structs
-const List *linkedList = createList();
-
-//Func that prints the report of the program running.
-void finalReport(int signal) {
-    if(signal == SIGINT) {
-        printf("\n");
-        printf("Intrusion Detection Report:\n");
-        printf("SYN flood attack possible\n");
-        printf("%d SYN packets detected from %d IP addresses in %.6f seconds\n", 102, 103, 0.038504);
-        printf("%ld ARP responses (cache poisoning)\n", arpResponsePackets);
-        printf("%ld URL Blacklist violations\n", blacklistedPackets);
-
-        //Exit the program, its succesful despite the ^C
-        exit(0);
-    }
-}
-
-
-
-void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose) {
+void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose, List *linkedList) {
     if (verbose) printf("=========[ PACKET-%d ]=========\n", i);
 
     //Convert the packet data into the ether_header struct (found in if_ether.h) - this works because of the contiguous structure of the packet/ethernet struct.
@@ -91,6 +72,15 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
             //Packet payload found after the ethernet header, the ip header and the tcp header
             //doff = data offset
             packetPayload = packet + ETH_HLEN + (IPHeader->ip_hl*4) + (TCPHeader->doff*4);
+
+            //Test for a SYN attack
+            if (TCPHeader->syn == 1 && TCPHeader->ack == 0) {
+                //Adds the sourceip and the time to the linked list.
+                add(linkedList, ntohl(IPHeader->ip_src.s_addr));
+                synPackets++;
+
+                printList(linkedList);
+            }
         }
     }
 

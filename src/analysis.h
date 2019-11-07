@@ -2,9 +2,12 @@
 #define CS241_ANALYSIS_H
 
 #include <pcap.h>
+#include "linkedlist.h"
 
-void finalReport(int);
+extern volatile unsigned long arpResponsePackets;
+extern volatile unsigned long blacklistedPackets;
+extern volatile unsigned long synPackets;
 
-void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose);
+void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose, List *linkedList);
 
 #endif
