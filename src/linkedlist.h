@@ -13,4 +13,6 @@ void addNode(List *list, Node newNode);
 void freeListMemory(List *list);
 void printList(List *list);
 
+float getElapsedTime(List *list);
+
 #endif

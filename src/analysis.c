@@ -78,8 +78,6 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
                 //Adds the sourceip and the time to the linked list.
                 add(linkedList, ntohl(IPHeader->ip_src.s_addr));
                 synPackets++;
-
-                printList(linkedList);
             }
         }
     }

@@ -76,6 +76,39 @@ void add(List *list, long sourceIP) {
     }
 }
 
+//Microseconds between first packet and last packet.
+float getElapsedTime(List *list) {
+    //No point computing the time in this case, nothing happened.
+    if(list->head == NULL || list->head->next == NULL) {
+        return 0;
+    }
+
+    Node *head = list->head;
+    Node *current = list->head;
+    Node *next = current;
+
+    while (current != NULL) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
+    return (float)(current->timeReceived.tv_sec - head->timeReceived.tv_sec);
+}
+
+//Free the memory of the list, this includes the nodes too
+void freeListMemory(List *list) {
+    Node *current = list->head;
+    Node *next = current;
+
+    while (current != NULL) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+
+    free(list);
+}
 
 //Printing the list will be useful for debugging whats contained within this lsit.
 void printList(List *list) {
