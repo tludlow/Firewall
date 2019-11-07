@@ -8,6 +8,7 @@
 #include <netinet/tcp.h>
 #include <signal.h>
 #include <string.h>
+#include "linkedlist.h"
 
 //An ARP Reply code, these need to be logged.
 #define ARP_OPER_REPLY 0x02
@@ -19,6 +20,10 @@ int i = 0;
 static size_t arpResponsePackets = 0,
               blacklistedPackets = 0;
 
+
+//Linked list structs
+const List *linkedList = createList();
+
 //Func that prints the report of the program running.
 void finalReport(int signal) {
     if(signal == SIGINT) {
@@ -26,8 +31,8 @@ void finalReport(int signal) {
         printf("Intrusion Detection Report:\n");
         printf("SYN flood attack possible\n");
         printf("%d SYN packets detected from %d IP addresses in %.6f seconds\n", 102, 103, 0.038504);
-        printf("%d ARP responses (cache poisoning)\n", arpResponsePackets);
-        printf("%d URL Blacklist violations\n", blacklistedPackets);
+        printf("%ld ARP responses (cache poisoning)\n", arpResponsePackets);
+        printf("%ld URL Blacklist violations\n", blacklistedPackets);
 
         //Exit the program, its succesful despite the ^C
         exit(0);
@@ -72,6 +77,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
             printf("IP Packet Length: %hu\n", IPHeader->ip_len);
             printf("IP Header Length (Bytes): %u\n", IPHeader->ip_hl*4);
             printf("IP Packet Length: %hu\n", IPHeader->ip_len);
+            printf("IP Source: %u\n", ntohl(IPHeader->ip_src.s_addr));
         }
         
         //As all TCP packets are carried in IP packets, we can now check for a TCP packet existing.
@@ -80,6 +86,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
 
             if (verbose) printf("TCP Source Port: %d\n", ntohs(TCPHeader->source));
             if (verbose) printf("TCP Destination Port: %d\n", ntohs(TCPHeader->dest));
+            if (verbose) printf("TCP SYN Attack: %s\n", (TCPHeader->syn) == 1 && (TCPHeader->ack) == 0 ? "\u2714" : "\u274c");
 
             //Packet payload found after the ethernet header, the ip header and the tcp header
             //doff = data offset
@@ -116,17 +123,15 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
     //Now to check whether or not the packet coming in is a TCP, HTTP packet which has the host header of "telegraph.co.uk", this is a blacklisted domain.
     int httpPort = 80;
     if (IPHeader->ip_p == IPPROTO_TCP) {
-        if (ntohs(TCPHeader->dest) == 80 || ntohs(TCPHeader->source) == 80) {
-            unsigned char *substr = strstr(packetPayload, "Location:");
+        if (ntohs(TCPHeader->dest) == httpPort || ntohs(TCPHeader->source) == httpPort) {
+            unsigned char *substr = strstr(packetPayload, "Host:");
             if (substr != NULL)
             if (strstr(substr, "telegraph.co.uk") != NULL) {
                 int j;
                 for(j = 1; j < 20; j++) {
-                    printf("Malicous shitter found!\n");
+                    printf("Malicous packet found!\n");
                 }
                 blacklistedPackets++;
-                if (verbose) printf("MALICIOUS HTML FOUND\n");
-                exit(0);
             }
         }
     }
