@@ -5,10 +5,11 @@
 #include <signal.h>
 #include <pcap.h>
 #include <netinet/if_ether.h>
-
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
 #include "linkedlist.h"
 #include "dispatch.h"
-#include "analysis.h"
+
 
 
 // Application main sniffing loop
@@ -42,7 +43,7 @@ void sniff(char *interface, int verbose) {
         } else {
             // Optional: dump raw data to terminal
             if (verbose) {
-                //dump(packet, header.len);
+                dump(packet, header.len);
             }
             // Dispatch packet for processing
             dispatch(&header, packet, verbose, linkedList);
@@ -73,6 +74,62 @@ void dump(const unsigned char *data, int length) {
             printf(":");
         }
     }
+
+    printf("\n");
+
+    struct ip *IPHeader;
+
+    struct tcphdr *TCPHeader;
+
+    //IPv4 Packet.
+    if (ntohs(eth_header->ether_type) == ETH_P_IP) {
+        printf("============ IP HEADER ============\n");
+        IPHeader = (struct ip *) data + ETH_HLEN; 
+        const unsigned char *IPPayload = data + ETH_HLEN + (IPHeader->ip_hl*4);
+
+        printf("IPv4 Packet \n");
+        printf("IP Packet Length: %hu\n", IPHeader->ip_len);
+        printf("IP Header Length (Bytes): %u\n", IPHeader->ip_hl*4);
+        printf("IP Source: %u\n", ntohl(IPHeader->ip_src.s_addr));
+        printf("Type of service: %hhu\n", IPHeader->ip_tos);
+        printf("ID: %hu\n", ntohs(IPHeader->ip_id));
+        printf("Fragment: %hu\n", ntohs(IPHeader->ip_off));
+        printf("Time to live: %hhu\n", IPHeader->ip_ttl);
+        printf("Protocol: %hhu\n", IPHeader->ip_p);
+        
+        //TCP Packet
+        if (IPHeader->ip_p == IPPROTO_TCP) {
+            printf("============ TCP HEADER ============\n");
+            TCPHeader = (struct tcphdr *) IPPayload;
+
+            printf("Source Port: %u\n", ntohs(TCPHeader->source));
+            printf("Destination Port: %u\n", ntohs(TCPHeader->dest));
+            printf("Seq Num: %lu\n", ntohl(TCPHeader->seq));
+            printf("Ack Num: %lu\n", ntohl(TCPHeader->ack_seq));
+            printf("Urgent Pointer: %u\n", ntohs(TCPHeader->urg_ptr));
+            printf("Flags:\n");
+            printf("URG|ACK|PSH|RST|SYN|FIN\n");
+            printf("[%u]|[%u]|[%u]|[%u]|[%u]|[%u]\n",
+                TCPHeader->urg, TCPHeader->ack, TCPHeader->psh,
+                TCPHeader->rst, TCPHeader->syn, TCPHeader->fin);
+        }
+    }
+
+    struct ether_arp *ether_arp = NULL;
+
+    //ARP Packet
+    if(ntohs(eth_header->ether_type) == ETH_P_ARP) {
+        printf("============ ARP HEADER ============\n");
+
+        //Like above, load the arp packet info into the ether_Arp struct, which starts after the ethernet header.
+        ether_arp = (struct ether_arp*) (data + ETH_HLEN);
+
+        printf("[ARP] Hardware type: %s\n", (ether_arp->ea_hdr.ar_hrd) == 1 ? "Ethernet" : "??"); 
+        printf("[ARP] Protocol type is: %s\n", (ether_arp->ea_hdr.ar_pro) == 0x0800 ? "IPv4" : "??"); 
+        printf("[ARP] Operation: %s\n", (ether_arp->ea_hdr.ar_op) == 1 ? "ARP Request" : "ARP Reply"); 
+            
+    }
+
     printf("\nType: %hu\n", eth_header->ether_type);
     printf(" === PACKET %ld DATA == \n", pcount);
 

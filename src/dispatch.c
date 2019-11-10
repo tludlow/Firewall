@@ -7,15 +7,32 @@
 #include "analysis.h"
 #include "linkedlist.h"
 
+#define MAX_THREADS 4
+
 int keepRunning = 1;
 
+pthread_rwlock_t readWriteLockPacket;
+//Array of the threads we have.
+pthread_t readThreads[MAX_THREADS];
 
 void createThreadPool(void) {
 
+    // pthread_rwlockattr_t *attr;
+    // pthread_rwlockattr_init(&attr);
+    // pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+
+    // pthread_rwlock_init(&readWriteLockPacket, &attr);
+    // pthread_rwlockattr_destroy(&attr);
+
+    // //Make our threads.
+    // int threadsCreated = 0;
+    // for (i = 0; i < MAX_THREADS; i++) {
+    //     pthread_create(&readThreads[i], NULL, &threadProgram, NULL);
+    // }
 }
 
-void handleSignal(int sig) {
-    if(sig == SIGINT) {
+void handleSignal(int signal) {
+    if(signal == SIGINT) {
         keepRunning = 0;
     }
 }
@@ -27,7 +44,7 @@ void dispatch(struct pcap_pkthdr *header, const unsigned char *packet, int verbo
     // it is a simple passthrough as this skeleton is single-threaded.
 
     if (signal(SIGINT, handleSignal) == SIG_ERR) {
-        fprintf(stderr, "Unable to register SIGINT handler\n");
+        fprintf(stderr, "Ctrl-C closing has caused an error...\n");
         exit(EXIT_FAILURE);
     }
 
@@ -66,7 +83,7 @@ void *threadProgram(void *arg) {
 
         //If we actuallly have a packet, we should run it.
         if (packetToAnalyse != NULL) {
-            analyse(NULL, packetToAnalyse, verbose, linkedList)
+            analyse(NULL, packetToAnalyse, verbose, NULL);
         }
     }
 }
