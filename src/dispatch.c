@@ -6,6 +6,7 @@
 
 #include "analysis.h"
 #include "linkedlist.h"
+#include "queue.h";
 
 #define MAX_THREADS 4
 
@@ -17,6 +18,8 @@ pthread_t readThreads[MAX_THREADS];
 
 void createThreadPool(void) {
 
+    Queue *queue = createQueue();
+    
     // pthread_rwlockattr_t *attr;
     // pthread_rwlockattr_init(&attr);
     // pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
@@ -49,13 +52,21 @@ void dispatch(struct pcap_pkthdr *header, const unsigned char *packet, int verbo
     }
 
     if (keepRunning == 0) {
-        //Calculate the time between first packet and last packet.
-        float elapsedTime = getElapsedTime(linkedList);
+
+        int unique = uniqueIPS(linkedList);
+
+        float elapsed = getElapsedTime(linkedList);
 
         printf("\n");
         printf("Intrusion Detection Report:\n");
-        printf("SYN flood attack possible\n");
-        printf("%ld SYN packets detected from %ld IP addresses in %.6f seconds\n", synPackets, synPackets, elapsedTime);
+
+        if (isPossibleAttack(linkedList) == 1) {
+            printf("SYN flood attack possible\n");
+        } else {
+            printf("SYN flood attack NOT possible\n");
+        }
+
+        printf("%ld SYN packets detected from %ld IP addresses in %.6f seconds\n", synPackets, unique, elapsed);
         printf("%ld ARP responses (cache poisoning)\n", arpResponsePackets);
         printf("%ld URL Blacklist violations\n", blacklistedPackets);
 
@@ -63,9 +74,9 @@ void dispatch(struct pcap_pkthdr *header, const unsigned char *packet, int verbo
 
         //Exit the program, its succesful despite the ^C
         exit(0);
+    } else {
+        analyse(header, packet, verbose, linkedList);
     }
-
-    analyse(header, packet, verbose, linkedList);
 }
 
 void *threadProgram(void *arg) {

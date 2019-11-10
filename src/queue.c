@@ -43,7 +43,7 @@ Queue *createQueue() {
     return queue;
 }
 
-void addNode(Queue *queue, unsigned char *packet) {
+void addQueueNode(Queue *queue, unsigned char *packet) {
     QueueNode *current = NULL;
 
     if (queue->front == NULL) {
@@ -118,5 +118,5 @@ unsigned char * dequeue(Queue *queue) {
 }
 
 void enqueue(Queue *queue, unsigned char *packet) {
-    add(queue, packet);
+    addQueueNode(queue, packet);
 }

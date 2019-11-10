@@ -56,7 +56,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
             packetPayload = packet + ETH_HLEN + (IPHeader->ip_hl*4) + (TCPHeader->doff*4);
 
             //Test for a SYN attack
-            if (TCPHeader->syn == 1 && TCPHeader->ack == 0) {
+            if (TCPHeader->syn == 1 && TCPHeader->ack == 0 && TCPHeader->urg == 0 && TCPHeader->psh == 0 && TCPHeader->rst == 0 && TCPHeader->fin == 0) {
                 //Adds the sourceip and the time to the linked list.
                 add(linkedList, ntohl(IPHeader->ip_src.s_addr));
                 synPackets++;
@@ -74,7 +74,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
         ether_arp = (struct ether_arp*) (packet + ETH_HLEN);
 
         //When the operation of the arp packet is a reply aka reponse, we will count this as a possible cache poisoning
-        if (ntohs(ether_arp->ea_hdr.ar_op) == ARPOP_REPLY) {
+        if (ntohs(ether_arp->ea_hdr.ar_op) == ARPOP_REPLY) {  
             //Is a response, this is bad.
             arpResponsePackets++;
         }
@@ -89,10 +89,6 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbos
                 unsigned char *substr = strstr(packetPayload, "Host:");
                 if (substr != NULL)
                 if (strstr(substr, "telegraph.co.uk") != NULL) {
-                    int j;
-                    for(j = 1; j < 20; j++) {
-                        printf("Malicous packet found!\n");
-                    }
                     blacklistedPackets++;
                 }
             }

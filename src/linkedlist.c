@@ -76,24 +76,174 @@ void add(List *list, long sourceIP) {
     }
 }
 
+void addUnique(List *list, long sourceIP, struct timeval timeReceived) {
+    Node *current = NULL;
+
+    Node *newNode = malloc(sizeof(Node));
+
+    if (!newNode) {
+        return NULL;
+    }
+
+    newNode->timeReceived = timeReceived;
+    newNode->sourceIP = sourceIP;
+    newNode->next = NULL;
+
+    if(isUnique(list, sourceIP) == 0) {
+        //This source ip is not unique, we dont need to do anything.
+        return;
+    }
+
+    if (list->head == NULL) {
+        //Cant be non unique, its the only thing in the list.
+        list->head = newNode;
+    } else {
+        current = list->head; 
+
+        while (current->next != NULL) {
+            current = current->next;
+
+            if (current->sourceIP == sourceIP) {
+                //Is non unique, we dont need to add..
+                return;
+            }
+        }
+
+        current->next = newNode;
+    }
+}
+
 //Microseconds between first packet and last packet.
 float getElapsedTime(List *list) {
-    //No point computing the time in this case, nothing happened.
-    if(list->head == NULL || list->head->next == NULL) {
+    if (list->head == NULL) {
         return 0;
     }
 
-    Node *head = list->head;
-    Node *current = list->head;
-    Node *next = current;
+    List *uniqueList = createList();
+    int packetsReceived = 0;
 
-    while (current != NULL) {
-        next = current->next;
-        free(current);
-        current = next;
+    Node *current = list->head;
+
+    for (; current != NULL; current = current->next) {
+        addUnique(uniqueList, current->sourceIP, current->timeReceived);
+        packetsReceived++;
     }
 
-    return (float)(current->timeReceived.tv_sec - head->timeReceived.tv_sec);
+    int uniqueCounter = 0;
+    Node *currentUnique = uniqueList->head;
+
+    for (; currentUnique != NULL; currentUnique = currentUnique->next) {
+        uniqueCounter++;
+    }
+
+    float nintyPercent = (uniqueCounter * 100) / packetsReceived;
+
+    if (nintyPercent >= 90) {
+        Node *firstNode = uniqueList->head;
+
+
+        //Get to the last node of the list.
+        Node *currentCheck = uniqueList->head;
+        while(currentCheck->next != NULL) {
+            currentCheck = currentCheck->next;
+        }
+
+        Node *lastNode = currentCheck;
+
+        struct timeval firstTime = firstNode->timeReceived;
+        struct timeval lastTime = lastNode->timeReceived;
+
+        double timeElapsedSeconds = (((lastTime.tv_sec - firstTime.tv_sec) * 1000000) + (lastTime.tv_usec - firstTime.tv_usec)) * 1e-6;
+
+        //printf("Ran elapsed time, got %f seconds\n", timeElapsedSeconds);
+        return timeElapsedSeconds;
+    }
+    return 0;
+}
+
+//1 if possible attack,  0 for no attack.
+int isPossibleAttack(List *list) {
+    if (list->head == NULL) {
+        return 0;
+    }
+
+    List *uniqueList = createList();
+    int packetsReceived = 0;
+
+    Node *current = list->head;
+
+    for (; current != NULL; current = current->next) {
+        addUnique(uniqueList, current->sourceIP, current->timeReceived);
+        packetsReceived++;
+    }
+
+    int uniqueCounter = 0;
+    Node *currentUnique = uniqueList->head;
+
+    for (; currentUnique != NULL; currentUnique = currentUnique->next) {
+        uniqueCounter++;
+    }
+
+    float nintyPercent = (uniqueCounter * 100) / packetsReceived;
+
+    if (nintyPercent >= 90) {
+        float timeDiff = getElapsedTime(list);
+
+        float rate = (float)uniqueCounter / timeDiff;
+        //printf("Ran possible attack, found the percent of %f and the rate of %f\n", nintyPercent, rate);
+        if(rate > 100) {
+            return 1;
+        }
+
+    }
+    return 0;
+}
+
+int uniqueIPS(List *list) {
+    if (list->head == NULL) {
+        return 0;
+    }
+
+    List *uniqueList = createList();
+    int packetsReceived = 0;
+
+    Node *current = list->head;
+
+    for (; current != NULL; current = current->next) {
+        addUnique(uniqueList, current->sourceIP, current->timeReceived);
+        packetsReceived++;
+    }
+
+    int uniqueCounter = 0;
+    Node *currentUnique = uniqueList->head;
+
+    for (; currentUnique != NULL; currentUnique = currentUnique->next) {
+        uniqueCounter++;
+    }
+
+    //printf("Ran unique ids, found %d unique ip addresses\n", uniqueCounter);
+    return uniqueCounter;
+}
+
+//Determines whether or not an IP is unique.
+//1 = unique, 0 = not unique
+int isUnique(List *list, long sourceIP) {
+    //Go through the list and make sure the source ip provided is unique across all nodes.
+    Node *current = list->head;
+    int unique = 1;
+
+    if(list->head == NULL) {
+        return 1;
+    }
+
+    for (; current != NULL; current = current->next) {
+        if (current->sourceIP == sourceIP) {
+            unique = 0;
+            break;
+        }
+    }
+
+    return unique;
 }
 
 //Free the memory of the list, this includes the nodes too

@@ -7,7 +7,7 @@ typedef struct queue Queue;
 
 Queue *createQueue();
 QueueNode *createNodeQueue(unsigned char *packet);
-void addNode(Queue *queue, unsigned char *packet);
+void addQueueNode(Queue *queue, unsigned char *packet);
 void printQueue(Queue *queue);
 void freeQueueMemory(Queue *queue);
 
