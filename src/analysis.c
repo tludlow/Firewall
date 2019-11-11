@@ -21,7 +21,7 @@ volatile unsigned long synPackets = 0;
 
 void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *linkedList) {
     //Convert the packet data into the ether_header struct (found in if_ether.h) - this works because of the contiguous structure of the packet/ethernet struct.
-    //etherheader structure:  
+    //etherheader structure:
     //  - u_char dest_mac[6]       - 6 octets of the destination mac address (the mac address of the current computer)
     //  - u_char src_mac[6]        - 6 octets of the source mac address
     //  - u_short ether_type;            - The type of packet. https://en.wikipedia.org/wiki/EtherType
@@ -37,16 +37,14 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *link
     struct tcphdr *TCPHeader;
 
     //The packet payload, following the ethernet header, ip header and tcp header.
-    unsigned char *packetPayload;
-
-    //Contents of the IP Packet, which is the packet argument with the ehternet header skipped over (ETH_HLEN) + the ip header length
-
+    unsigned char *packetPayload
+    
     //Parse the ethernet packet to see if it is a IPv4 packet, which has a type of 8 and when corrected for endianess 2048
     //If it is a IPv4 packet, we take the ethernet payload and "load" it into the ip struct
     if(ntohs(ethernetHeader->ether_type) == ETH_P_IP) {
-        IPHeader = (struct ip *) ethernetPayload; 
+        IPHeader = (struct ip *) ethernetPayload;
         const unsigned char *IPPayload = packet + ETH_HLEN + (IPHeader->ip_hl*4);
-        
+
         //As all TCP packets are carried in IP packets, we can now check for a TCP packet existing.
         if (IPHeader->ip_p == IPPROTO_TCP) {
             TCPHeader = (struct tcphdr *) IPPayload;
@@ -74,7 +72,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *link
         ether_arp = (struct ether_arp*) (packet + ETH_HLEN);
 
         //When the operation of the arp packet is a reply aka reponse, we will count this as a possible cache poisoning
-        if (ntohs(ether_arp->ea_hdr.ar_op) == ARPOP_REPLY) {  
+        if (ntohs(ether_arp->ea_hdr.ar_op) == ARPOP_REPLY) {
             //Is a response, this is bad.
             arpResponsePackets++;
         }
