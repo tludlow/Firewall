@@ -29,7 +29,6 @@ struct node {
  */
 struct list {
     Node *head;
-    pthread_mutex_t mutex;
 };
 
 
@@ -61,7 +60,6 @@ List *createList() {
     }
 
     list->head = NULL;
-    pthread_mutex_init(&mutex, NULL);
     return list;
 }
 
@@ -69,7 +67,6 @@ List *createList() {
 void add(List *list, long sourceIP) {
     Node *current = NULL;
 
-    pthread_mutex_lock(&mutex);
     if (list->head == NULL) {
         //Cant be non unique, its the only thing in the list.
         list->head = createNode(sourceIP);
@@ -84,10 +81,7 @@ void add(List *list, long sourceIP) {
                 return;
             }
         }
-
         current->next = createNode(sourceIP);
-
-        pthread_mutex_unlock(&mutex);
     }
 }
 
@@ -103,13 +97,12 @@ void addUnique(List *list, long sourceIP, struct timeval timeReceived) {
     newNode->timeReceived = timeReceived;
     newNode->sourceIP = sourceIP;
     newNode->next = NULL;
-
+    
     if(isUnique(list, sourceIP) == 0) {
         //This source ip is not unique, we dont need to do anything.
         return;
     }
 
-    pthread_mutex_lock(&mutex);
     if (list->head == NULL) {
         //Cant be non unique, its the only thing in the list.
         list->head = newNode;
@@ -127,7 +120,6 @@ void addUnique(List *list, long sourceIP, struct timeval timeReceived) {
 
         current->next = newNode;
     }
-    pthread_mutex_unlock(&mutex);
 }
 
 //Microseconds between first packet and last packet.

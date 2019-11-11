@@ -6,7 +6,6 @@
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-#include <signal.h>
 #include <string.h>
 #include "linkedlist.h"
 
@@ -17,6 +16,10 @@
 volatile unsigned long arpResponsePackets = 0;
 volatile unsigned long blacklistedPackets = 0;
 volatile unsigned long synPackets = 0;
+
+static pthread_mutex_t arpMutex         = PTHREAD_MUTEX_INITIALIZER,
+                       blacklistMutex   = PTHREAD_MUTEX_INITIALIZER,
+                       synMutex         = PTHREAD_MUTEX_INITIALIZER;
 
 
 void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *linkedList) {
@@ -37,7 +40,7 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *link
     struct tcphdr *TCPHeader;
 
     //The packet payload, following the ethernet header, ip header and tcp header.
-    unsigned char *packetPayload
+    unsigned char *packetPayload;
     
     //Parse the ethernet packet to see if it is a IPv4 packet, which has a type of 8 and when corrected for endianess 2048
     //If it is a IPv4 packet, we take the ethernet payload and "load" it into the ip struct
@@ -56,8 +59,10 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *link
             //Test for a SYN attack
             if (TCPHeader->syn == 1 && TCPHeader->ack == 0 && TCPHeader->urg == 0 && TCPHeader->psh == 0 && TCPHeader->rst == 0 && TCPHeader->fin == 0) {
                 //Adds the sourceip and the time to the linked list.
+                pthread_mutex_lock(&synMutex);
                 add(linkedList, ntohl(IPHeader->ip_src.s_addr));
                 synPackets++;
+                pthread_mutex_unlock(&synMutex);
             }
         }
     }
@@ -74,7 +79,9 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *link
         //When the operation of the arp packet is a reply aka reponse, we will count this as a possible cache poisoning
         if (ntohs(ether_arp->ea_hdr.ar_op) == ARPOP_REPLY) {
             //Is a response, this is bad.
+            pthread_mutex_lock(&arpMutex);
             arpResponsePackets++;
+            pthread_mutex_unlock(&arpMutex);
         }
     }
 
@@ -87,7 +94,9 @@ void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *link
                 unsigned char *substr = strstr(packetPayload, "Host:");
                 if (substr != NULL)
                 if (strstr(substr, "telegraph.co.uk") != NULL) {
+                    pthread_mutex_lock(&blacklistMutex);
                     blacklistedPackets++;
+                    pthread_mutex_unlock(&blacklistMutex);
                 }
             }
         }
