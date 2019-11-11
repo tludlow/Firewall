@@ -30,18 +30,21 @@ void createThreadPool(List *list) {
     
 }
 
+//When Ctrl+C clicked we want to shut down the threads, give the signal by changing keepRunning.
 void handleSignal(int signal) {
     if(signal == SIGINT) {
         keepRunning = 0;
     }
 }
 
+//Data we pass to the dispatch pcap handler as we only have 1 argument available.
 struct dispatchArgs {
     int verbose;
     List *linkedList;
 };
 
 
+//A pcap handler function, it handles the packets we receive on the pcap loop, it adds to the packet proccess queue or just runs analyse depending on verbose.
 void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned char *packet) {
     struct dispatchArgs *dArgs = args;
     if (signal(SIGINT, handleSignal) == SIG_ERR) {
@@ -74,7 +77,9 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
         printf("%ld ARP responses (cache poisoning)\n", arpResponsePackets);
         printf("%ld URL Blacklist violations\n", blacklistedPackets);
 
+        //Free the linked list memory.
         freeListMemory(dArgs->linkedList);
+        freeQueueMemory(staticQueue);
 
         //Exit the program, its succesful despite the ^C
         exit(0);
@@ -93,7 +98,8 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
     }
 }
 
-//Function ran by the thread itself.
+//Function ran by the threads themselves.
+//Just loops looking for packets to be proccessed, when signal handler run we shut down the thread by making it idle it will be cleaned up automatically.
 void *threadProgram(void *threadArg) {
     //Signal checker.
     signal(SIGINT, handleSignal);
