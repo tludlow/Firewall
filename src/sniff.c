@@ -11,6 +11,7 @@
 #include "dispatch.h"
 #include "queue.h"
 
+//Holds data that is passed int othe dispatch function, which is now a pcap_handler. Only has 1 argument so needs to be a struct.
 struct dispatchArgs {
     int verbose;
     List *linkedList;
@@ -34,6 +35,7 @@ void sniff(char *interface, int verbose) {
     }
 
     //Create the thread pool if not running in verbose.
+    //If we are in verbose it runs single threaded so its all fine!
     if(!verbose) {
         createThreadPool(linkedList);
     }
@@ -101,10 +103,9 @@ void dump(const unsigned char *data, int length) {
             printf("Ack Num: %lu\n", ntohl(TCPHeader->ack_seq));
             printf("Urgent Pointer: %u\n", ntohs(TCPHeader->urg_ptr));
             printf("Flags:\n");
-            printf("URG|ACK|PSH|RST|SYN|FIN\n");
-            printf("[%u]|[%u]|[%u]|[%u]|[%u]|[%u]\n",
-                TCPHeader->urg, TCPHeader->ack, TCPHeader->psh,
-                TCPHeader->rst, TCPHeader->syn, TCPHeader->fin);
+            printf("URG %u  |  ACK %u\nSYN|FIN\n", TCPHeader->urg, TCPHeader->ack);
+            printf("PSH %U  |  RST %u\n", TCPHeader->psh, TCPHeader->rst);
+            printf("SYN %U  |  FIN %u\n", TCPHeader->syn, TCPHeader->fin);
         }
     }
 

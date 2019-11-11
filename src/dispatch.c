@@ -9,26 +9,17 @@
 #include "queue.h"
 
 #define MAX_THREADS 4
-int keepRunning = 1;
+int keepRunning = 1; //Whether or not we have received the Ctrl+C signal.
 
-Queue *staticQueue;
+Queue *staticQueue; //Queue holding the packets yet to process
 
-//Our mutex lock for the queue, where we store packets to be processed.
-pthread_rwlock_t queuePacketLock;
+pthread_mutex_t queuePacketLock = PTHREAD_MUTEX_INITIALIZER; //Queue mutex
 
-pthread_t threads[MAX_THREADS];
+pthread_t threads[MAX_THREADS]; //Thread pool, the storage of the threads
+
 
 void createThreadPool(List *list) {
-    pthread_rwlockattr_t lockField;
-    pthread_rwlockattr_init(&lockField);
-    pthread_rwlockattr_setkind_np(&lockField, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
-
     staticQueue = createQueue();
-
-    //Give priority to writing to the queue because we cant process nothing...
-    pthread_rwlock_init(&queuePacketLock, &lockField);
-    pthread_rwlockattr_destroy(&lockField);
-
 
     //Make the threads and store thme in the pool (threads array)
     int threadCount = 0;
@@ -96,9 +87,9 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
     } else {
         //Add the packet to the queue, the threads will read from this and call analyse themselves.
         //Lock the thread so that we can write to it without issues happening.
-        pthread_rwlock_wrlock(&queuePacketLock);
+        pthread_mutex_lock(&queuePacketLock);
         enqueue(staticQueue, packet);
-        pthread_rwlock_unlock(&queuePacketLock);
+        pthread_mutex_unlock(&queuePacketLock);
     }
 }
 
@@ -113,9 +104,9 @@ void *threadProgram(void *threadArg) {
 
     while(keepRunning == 1) {
         //Try and pop from the queue, lock and unlock to prevent data issues
-        pthread_rwlock_rdlock(&queuePacketLock);
+        pthread_mutex_lock(&queuePacketLock);
         unsigned char *packet = dequeue(staticQueue);
-        pthread_rwlock_unlock(&queuePacketLock);
+        pthread_mutex_unlock(&queuePacketLock);
 
         if (packet != NULL) {
             analyse(NULL, packet, threadArg);
