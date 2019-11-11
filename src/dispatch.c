@@ -6,32 +6,39 @@
 
 #include "analysis.h"
 #include "linkedlist.h"
-#include "queue.h";
+#include "queue.h"
 
 #define MAX_THREADS 4
-
 int keepRunning = 1;
 
-pthread_rwlock_t readWriteLockPacket;
-//Array of the threads we have.
-pthread_t readThreads[MAX_THREADS];
+//Our mutex lock for the queue, where we store packets to be processed.
+pthread_rwlock_t queuePacketLock;
 
-void createThreadPool(void) {
+pthread_t threads[MAX_THREADS];
 
-    Queue *queue = createQueue();
+struct threadArgument {
+    List *linkedList;
+    Queue *queue;
+};
+
+void createThreadPool(List *list, Queue *queue) {
+    pthread_rwlockattr_t lockField;
+    pthread_rwlockattr_init(&lockField);
+    pthread_rwlockattr_setkind_np(&lockField, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+
+    //Give priority to writing to the queue because we cant process nothing...
+    pthread_rwlock_init(&queuePacketLock, &lockField);
+    pthread_rwlockattr_destroy(&lockField);
+
+    struct threadArgument threadArgs = {list, queue};
+
+    //Make the threads and store thme in the pool (threads array)
+    int threadCount = 0;
+    for (threadCount = 0;  threadCount < MAX_THREADS; threadCount++) {
+        printf("Created thread %d\n", threadCount);
+        pthread_create(&threads[threadCount], NULL, &threadProgram, NULL);
+    }
     
-    // pthread_rwlockattr_t *attr;
-    // pthread_rwlockattr_init(&attr);
-    // pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
-
-    // pthread_rwlock_init(&readWriteLockPacket, &attr);
-    // pthread_rwlockattr_destroy(&attr);
-
-    // //Make our threads.
-    // int threadsCreated = 0;
-    // for (i = 0; i < MAX_THREADS; i++) {
-    //     pthread_create(&readThreads[i], NULL, &threadProgram, NULL);
-    // }
 }
 
 void handleSignal(int signal) {
@@ -40,61 +47,82 @@ void handleSignal(int signal) {
     }
 }
 
+struct dispatchArgs {
+    int verbose;
+    List *linkedList;
+    Queue *queue;
+};
 
-void dispatch(struct pcap_pkthdr *header, const unsigned char *packet, int verbose, List *linkedList) {
-    // TODO: Your part 2 code here
-    // This method should handle dispatching of work to threads. At present
-    // it is a simple passthrough as this skeleton is single-threaded.
-
+void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned char *packet) {
+    struct dispatchArgs *dArgs = args;
     if (signal(SIGINT, handleSignal) == SIG_ERR) {
         fprintf(stderr, "Ctrl-C closing has caused an error...\n");
         exit(EXIT_FAILURE);
     }
 
     if (keepRunning == 0) {
+        //Kill of all our threads.
+        void *threadReturnPoint;
+        int threadCount = 0;
+        for (threadCount = 0;  threadCount < MAX_THREADS; threadCount++) {
+           pthread_join(threads[threadCount], &threadReturnPoint);
+        }
 
-        int unique = uniqueIPS(linkedList);
+        //All threads are now dead, we can now make the report.
 
-        float elapsed = getElapsedTime(linkedList);
+        //Unique IPS that sent SYN attack packets.
+        int unique = uniqueIPS(dArgs->linkedList);
+
+        //The time between the first syn attack packet and the last
+        float elapsed = getElapsedTime(dArgs->linkedList);
 
         printf("\n");
         printf("Intrusion Detection Report:\n");
-
-        if (isPossibleAttack(linkedList) == 1) {
+        if (isPossibleAttack(dArgs->linkedList) == 1) {
             printf("SYN flood attack possible\n");
-        } else {
-            printf("SYN flood attack NOT possible\n");
         }
-
         printf("%ld SYN packets detected from %ld IP addresses in %.6f seconds\n", synPackets, unique, elapsed);
         printf("%ld ARP responses (cache poisoning)\n", arpResponsePackets);
         printf("%ld URL Blacklist violations\n", blacklistedPackets);
 
-        freeListMemory(linkedList);
+        freeListMemory(dArgs->linkedList);
 
         //Exit the program, its succesful despite the ^C
         exit(0);
+    }
+
+    //We are going to either analyse (if were running in verbose) or add the packet to the queue for the threads to handle.
+    printf("Verbose mode is: %d\n", dArgs->verbose);
+    if (dArgs->verbose) {
+        dump(packet, header->len);
+        analyse(header, packet, dArgs->linkedList);
     } else {
-        analyse(header, packet, verbose, linkedList);
+        //Add the packet to the queue, the threads will read from this and call analyse themselves.
+        //Lock the thread so that we can write to it without issues happening.
+        pthread_rwlock_wrlock(&queuePacketLock);
+        addQueueNode(dArgs->queue, packet);
+        pthread_rwlock_unlock(&queuePacketLock);
     }
 }
 
-void *threadProgram(void *arg) {
-    //Whether we are running in verbose mode...
-    static const int verbose = 0;
+//Function ran by the thread itself.
+void *threadProgram(void *threadArg) {
+    //Read the struct argument for the thread
+    //const struct threadArgument *const argument = threadArg;
 
-    //The actual packet data to analyse.
-    unsigned char *packetToAnalyse = NULL;
+    //Whether we are running in verbose mode...
+    //int verbose = argument->verbose;
 
     //Signal checker.
     signal(SIGINT, handleSignal);
 
-    //While the Ctrl-C command has not been pressed, run the thread.
-    while (keepRunning != 0) {
+    // while(keepRunning == 1) {
+    //     //Try and pop from the queue, lock and unlock to prevent data issues
+    //     pthread_rwlock_rdlock(&queuePacketLock);
+    //     unsigned char *packet = dequeue(queue);
+    //     pthread_rwlock_unlock(&queuePacketLock);
 
-        //If we actuallly have a packet, we should run it.
-        if (packetToAnalyse != NULL) {
-            analyse(NULL, packetToAnalyse, verbose, NULL);
-        }
-    }
+    //     //Now we need to analyse the packet.
+    //     analyse(NULL, packet, 0, argument->linkedList);
+    // }
 }

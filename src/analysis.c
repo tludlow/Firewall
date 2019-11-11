@@ -19,7 +19,7 @@ volatile unsigned long blacklistedPackets = 0;
 volatile unsigned long synPackets = 0;
 
 
-void analyse(struct pcap_pkthdr *header, const unsigned char *packet, int verbose, List *linkedList) {
+void analyse(struct pcap_pkthdr *header, const unsigned char *packet, List *linkedList) {
     //Convert the packet data into the ether_header struct (found in if_ether.h) - this works because of the contiguous structure of the packet/ethernet struct.
     //etherheader structure:  
     //  - u_char dest_mac[6]       - 6 octets of the destination mac address (the mac address of the current computer)

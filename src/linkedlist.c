@@ -153,7 +153,7 @@ float getElapsedTime(List *list) {
         struct timeval firstTime = firstNode->timeReceived;
         struct timeval lastTime = lastNode->timeReceived;
 
-        double timeElapsedSeconds = (((lastTime.tv_sec - firstTime.tv_sec) * 1000000) + (lastTime.tv_usec - firstTime.tv_usec)) * 1e-6;
+        double timeElapsedSeconds = (((lastTime.tv_sec - firstTime.tv_sec) * 1000000) + (lastTime.tv_usec - firstTime.tv_usec)) * 0.000001;
 
         //printf("Ran elapsed time, got %f seconds\n", timeElapsedSeconds);
         return timeElapsedSeconds;

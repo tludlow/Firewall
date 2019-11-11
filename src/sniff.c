@@ -9,13 +9,21 @@
 #include <netinet/tcp.h>
 #include "linkedlist.h"
 #include "dispatch.h"
+#include "queue.h"
 
-
+struct dispatchArgs {
+    int verbose;
+    List *linkedList;
+    Queue *queue;
+};
 
 // Application main sniffing loop
 void sniff(char *interface, int verbose) {
     //Linked list to store potential SYN attack packets.
     List *linkedList = createList();
+
+    //Queue for unproccessed packets.
+    Queue *queue = createQueue();
 
     // Open network interface for packet capture
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -29,26 +37,15 @@ void sniff(char *interface, int verbose) {
 
     }
 
-    // Capture packets (very ugly code)
-    struct pcap_pkthdr header;
-    const unsigned char *packet;
-    while (1) {
-        // Capture a  packet
-        packet = pcap_next(pcap_handle, &header);
-        if (packet == NULL) {
-            // pcap_next can return null if no packet is seen within a timeout
-            if (verbose) {
-                printf("No packet received. %s\n", pcap_geterr(pcap_handle));
-            }
-        } else {
-            // Optional: dump raw data to terminal
-            if (verbose) {
-                dump(packet, header.len);
-            }
-            // Dispatch packet for processing
-            dispatch(&header, packet, verbose, linkedList);
-        }
+    //Create the thread pool if not running in verbose.
+    if(!verbose) {
+        createThreadPool(linkedList, queue);
     }
+
+    struct dispatchArgs dArgs = {verbose, linkedList, queue};
+
+    signal(SIGINT, handleSignal);
+    pcap_loop(pcap_handle, -1, (pcap_handler) dispatch, (u_char *) &dArgs);
 }
 
 // Utility/Debugging method for dumping raw packet data
