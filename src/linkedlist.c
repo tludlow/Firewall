@@ -1,14 +1,22 @@
+/* ********************************
+ * Author:       Thomas Ludlow - u1814232
+ * Description:  A linked list implementation in C, used to store IP addresses and the time received of the packet which the IP was in.
+ *
+ *//** @file linkedlist.h *//*
+ *
+ ********************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "linkedlist.h"
 
-/**
-* Structs
-*/
-
+/*  Struct: node
+ *  An individual element of a linked list, pointing to the next node (singly linked list) and storing data about the packet.
+ */
 struct node {
     struct timeval timeReceived; //https://pubs.opengroup.org/onlinepubs/007908799/xsh/systime.h.html <- timeval documentation
     long sourceIP; //The source ip of the packet.
@@ -16,9 +24,12 @@ struct node {
     struct Node *next;
 };
 
-//List struct, holds the header node and makes the syntax of using the linked list nicer.
+/*  Struct: list
+ *  A list struct which holds the head node, makes the code look nicer throughout rather than just referencing a head node instead of a list everytime.
+ */
 struct list {
-    Node *head; 
+    Node *head;
+    pthread_mutex_t mutex;
 };
 
 
@@ -26,7 +37,7 @@ struct list {
 *  Node/List functions.
 */
 
-//Create a new node for the list, we dont need to define the time received its assumed to be when we are creating the node.
+//Creates a new node and return the pointer.
 Node *createNode(long sourceIP) {
     Node *newNode = malloc(sizeof(Node));
 
@@ -50,6 +61,7 @@ List *createList() {
     }
 
     list->head = NULL;
+    pthread_mutex_init(&mutex, NULL);
     return list;
 }
 
@@ -57,11 +69,12 @@ List *createList() {
 void add(List *list, long sourceIP) {
     Node *current = NULL;
 
+    pthread_mutex_lock(&mutex);
     if (list->head == NULL) {
         //Cant be non unique, its the only thing in the list.
         list->head = createNode(sourceIP);
     } else {
-        current = list->head; 
+        current = list->head;
 
         while (current->next != NULL) {
             current = current->next;
@@ -73,6 +86,8 @@ void add(List *list, long sourceIP) {
         }
 
         current->next = createNode(sourceIP);
+
+        pthread_mutex_unlock(&mutex);
     }
 }
 
@@ -94,11 +109,12 @@ void addUnique(List *list, long sourceIP, struct timeval timeReceived) {
         return;
     }
 
+    pthread_mutex_lock(&mutex);
     if (list->head == NULL) {
         //Cant be non unique, its the only thing in the list.
         list->head = newNode;
     } else {
-        current = list->head; 
+        current = list->head;
 
         while (current->next != NULL) {
             current = current->next;
@@ -111,9 +127,11 @@ void addUnique(List *list, long sourceIP, struct timeval timeReceived) {
 
         current->next = newNode;
     }
+    pthread_mutex_unlock(&mutex);
 }
 
 //Microseconds between first packet and last packet.
+//Doesnt need mutex to be used on this, only ever ran by single thread on termination.
 float getElapsedTime(List *list) {
     if (list->head == NULL) {
         return 0;
@@ -162,6 +180,7 @@ float getElapsedTime(List *list) {
 }
 
 //1 if possible attack,  0 for no attack.
+//Doesnt need mutex to be used on this, only ever ran by single thread on termination.
 int isPossibleAttack(List *list) {
     if (list->head == NULL) {
         return 0;
@@ -199,6 +218,8 @@ int isPossibleAttack(List *list) {
     return 0;
 }
 
+//Returns the number of unique IP's in the list.
+//Doesnt need mutex to be used on this, only ever ran by single thread on termination.
 int uniqueIPS(List *list) {
     if (list->head == NULL) {
         return 0;
