@@ -32,8 +32,8 @@ void createThreadPool(List *list) {
 
     //Make the threads and store thme in the pool (threads array)
     int threadCount = 0;
+    printf("Creating %d threads.\n", MAX_THREADS);
     for (threadCount = 0;  threadCount < MAX_THREADS; threadCount++) {
-        printf("Created thread %d\n", threadCount);
         pthread_create(&threads[threadCount], NULL, &threadProgram, list);
     }
     
@@ -49,6 +49,7 @@ struct dispatchArgs {
     int verbose;
     List *linkedList;
 };
+
 
 void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned char *packet) {
     struct dispatchArgs *dArgs = args;
@@ -96,18 +97,13 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
         //Add the packet to the queue, the threads will read from this and call analyse themselves.
         //Lock the thread so that we can write to it without issues happening.
         pthread_rwlock_wrlock(&queuePacketLock);
-        addQueueNode(staticQueue, packet);
+        enqueue(staticQueue, packet);
         pthread_rwlock_unlock(&queuePacketLock);
     }
 }
 
 //Function ran by the thread itself.
 void *threadProgram(void *threadArg) {
-    //Read the struct argument for the thread
-
-    printf("Working...?\n");
-
-
     //Signal checker.
     signal(SIGINT, handleSignal);
 
