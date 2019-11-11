@@ -11,32 +11,30 @@
 #define MAX_THREADS 4
 int keepRunning = 1;
 
+Queue *staticQueue;
+
 //Our mutex lock for the queue, where we store packets to be processed.
 pthread_rwlock_t queuePacketLock;
 
 pthread_t threads[MAX_THREADS];
 
-struct threadArgument {
-    List *linkedList;
-    Queue *queue;
-};
-
-void createThreadPool(List *list, Queue *queue) {
+void createThreadPool(List *list) {
     pthread_rwlockattr_t lockField;
     pthread_rwlockattr_init(&lockField);
     pthread_rwlockattr_setkind_np(&lockField, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+
+    staticQueue = createQueue();
 
     //Give priority to writing to the queue because we cant process nothing...
     pthread_rwlock_init(&queuePacketLock, &lockField);
     pthread_rwlockattr_destroy(&lockField);
 
-    struct threadArgument threadArgs = {list, queue};
 
     //Make the threads and store thme in the pool (threads array)
     int threadCount = 0;
     for (threadCount = 0;  threadCount < MAX_THREADS; threadCount++) {
         printf("Created thread %d\n", threadCount);
-        pthread_create(&threads[threadCount], NULL, &threadProgram, NULL);
+        pthread_create(&threads[threadCount], NULL, &threadProgram, list);
     }
     
 }
@@ -50,7 +48,6 @@ void handleSignal(int signal) {
 struct dispatchArgs {
     int verbose;
     List *linkedList;
-    Queue *queue;
 };
 
 void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned char *packet) {
@@ -92,7 +89,6 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
     }
 
     //We are going to either analyse (if were running in verbose) or add the packet to the queue for the threads to handle.
-    printf("Verbose mode is: %d\n", dArgs->verbose);
     if (dArgs->verbose) {
         dump(packet, header->len);
         analyse(header, packet, dArgs->linkedList);
@@ -100,7 +96,7 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
         //Add the packet to the queue, the threads will read from this and call analyse themselves.
         //Lock the thread so that we can write to it without issues happening.
         pthread_rwlock_wrlock(&queuePacketLock);
-        addQueueNode(dArgs->queue, packet);
+        addQueueNode(staticQueue, packet);
         pthread_rwlock_unlock(&queuePacketLock);
     }
 }
@@ -108,21 +104,25 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
 //Function ran by the thread itself.
 void *threadProgram(void *threadArg) {
     //Read the struct argument for the thread
-    //const struct threadArgument *const argument = threadArg;
 
-    //Whether we are running in verbose mode...
-    //int verbose = argument->verbose;
+    printf("Working...?\n");
+
 
     //Signal checker.
     signal(SIGINT, handleSignal);
 
-    // while(keepRunning == 1) {
-    //     //Try and pop from the queue, lock and unlock to prevent data issues
-    //     pthread_rwlock_rdlock(&queuePacketLock);
-    //     unsigned char *packet = dequeue(queue);
-    //     pthread_rwlock_unlock(&queuePacketLock);
+    if (keepRunning == 0) {
+        free(threadArg);
+    }
 
-    //     //Now we need to analyse the packet.
-    //     analyse(NULL, packet, 0, argument->linkedList);
-    // }
+    while(keepRunning == 1) {
+        //Try and pop from the queue, lock and unlock to prevent data issues
+        pthread_rwlock_rdlock(&queuePacketLock);
+        unsigned char *packet = dequeue(staticQueue);
+        pthread_rwlock_unlock(&queuePacketLock);
+
+        if (packet != NULL) {
+            analyse(NULL, packet, threadArg);
+        }
+    }
 }

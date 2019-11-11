@@ -14,16 +14,12 @@
 struct dispatchArgs {
     int verbose;
     List *linkedList;
-    Queue *queue;
 };
 
 // Application main sniffing loop
 void sniff(char *interface, int verbose) {
     //Linked list to store potential SYN attack packets.
     List *linkedList = createList();
-
-    //Queue for unproccessed packets.
-    Queue *queue = createQueue();
 
     // Open network interface for packet capture
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -39,10 +35,10 @@ void sniff(char *interface, int verbose) {
 
     //Create the thread pool if not running in verbose.
     if(!verbose) {
-        createThreadPool(linkedList, queue);
+        createThreadPool(linkedList);
     }
 
-    struct dispatchArgs dArgs = {verbose, linkedList, queue};
+    struct dispatchArgs dArgs = {verbose, linkedList};
 
     signal(SIGINT, handleSignal);
     pcap_loop(pcap_handle, -1, (pcap_handler) dispatch, (u_char *) &dArgs);
