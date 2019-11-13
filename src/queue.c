@@ -1,6 +1,6 @@
 /* ********************************
  * Author:       Thomas Ludlow - u1814232
- * Description:  A queue data structure built upon the linked list created by me.
+ * Description:  A queue data structure built upon the linked list created by me..
  *
  *//** @file queue.h *//*
  *

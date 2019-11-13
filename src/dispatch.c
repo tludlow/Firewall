@@ -65,17 +65,17 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
         //Unique IPS that sent SYN attack packets.
         int unique = uniqueIPS(dArgs->linkedList);
 
-        //The time between the first syn attack packet and the last
+        //The time between the first syn attack packet and the lastR
         float elapsed = getElapsedTime(dArgs->linkedList);
 
-        printf("\n");
+        printf("\n\n\n\n");
         printf("Intrusion Detection Report:\n");
         if (isPossibleAttack(dArgs->linkedList) == 1) {
             printf("SYN flood attack possible\n");
         }
         printf("%ld SYN packets detected from %ld IP addresses in %.6f seconds\n", synPackets, unique, elapsed);
         printf("%ld ARP responses (cache poisoning)\n", arpResponsePackets);
-        printf("%ld URL Blacklist violations\n", blacklistedPackets);
+        printf("%ld URL Blacklist violations\n\n\n", blacklistedPackets);
 
         //Free the linked list memory.
         freeListMemory(dArgs->linkedList);

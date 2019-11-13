@@ -140,15 +140,6 @@ float getElapsedTime(List *list) {
         packetsReceived++;
     }
 
-    int uniqueCounter = 0;
-    Node *currentUnique = uniqueList->head;
-
-    for (; currentUnique != NULL; currentUnique = currentUnique->next) {
-        uniqueCounter++;
-    }
-
-    float nintyPercent = (uniqueCounter * 100) / packetsReceived;
-
     Node *firstNode = list->head;
 
     //Get to the last node of the list.
