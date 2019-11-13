@@ -17,7 +17,7 @@ pthread_mutex_t queuePacketLock = PTHREAD_MUTEX_INITIALIZER; //Queue mutex
 
 pthread_t threads[MAX_THREADS]; //Thread pool, the storage of the threads
 
-
+//Create the threads, only when not in verbose.
 void createThreadPool(List *list) {
     staticQueue = createQueue();
 
@@ -83,6 +83,11 @@ void dispatch(u_char *args, const struct pcap_pkthdr *header, const unsigned cha
 
         //Exit the program, its succesful despite the ^C
         exit(0);
+    }
+
+    //Can't do anything if the packet is null....
+    if (packet == NULL) {
+        return;
     }
 
     //We are going to either analyse (if were running in verbose) or add the packet to the queue for the threads to handle.

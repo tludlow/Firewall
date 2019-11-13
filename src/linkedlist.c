@@ -85,6 +85,7 @@ void add(List *list, long sourceIP) {
     }
 }
 
+//Adds to the linked list only if the IP address provided isnt already in the linked list.
 void addUnique(List *list, long sourceIP, struct timeval timeReceived) {
     Node *current = NULL;
 
@@ -148,27 +149,23 @@ float getElapsedTime(List *list) {
 
     float nintyPercent = (uniqueCounter * 100) / packetsReceived;
 
-    if (nintyPercent >= 90) {
-        Node *firstNode = uniqueList->head;
+    Node *firstNode = list->head;
 
-
-        //Get to the last node of the list.
-        Node *currentCheck = uniqueList->head;
-        while(currentCheck->next != NULL) {
-            currentCheck = currentCheck->next;
-        }
-
-        Node *lastNode = currentCheck;
-
-        struct timeval firstTime = firstNode->timeReceived;
-        struct timeval lastTime = lastNode->timeReceived;
-
-        double timeElapsedSeconds = (((lastTime.tv_sec - firstTime.tv_sec) * 1000000) + (lastTime.tv_usec - firstTime.tv_usec)) * 0.000001;
-
-        //printf("Ran elapsed time, got %f seconds\n", timeElapsedSeconds);
-        return timeElapsedSeconds;
+    //Get to the last node of the list.
+    Node *currentCheck = list->head;
+    while(currentCheck->next != NULL) {
+        currentCheck = currentCheck->next;
     }
-    return 0;
+
+    Node *lastNode = currentCheck;
+
+    struct timeval firstTime = firstNode->timeReceived;
+    struct timeval lastTime = lastNode->timeReceived;
+
+    double timeElapsedSeconds = (((lastTime.tv_sec - firstTime.tv_sec) * 1000000) + (lastTime.tv_usec - firstTime.tv_usec)) * 0.000001;
+
+    //printf("Ran elapsed time, got %f seconds\n", timeElapsedSeconds);
+    return timeElapsedSeconds;
 }
 
 //1 if possible attack,  0 for no attack.

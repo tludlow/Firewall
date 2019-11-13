@@ -1,3 +1,10 @@
+/* ********************************
+ * Author:       Thomas Ludlow - u1814232
+ * Description:  A queue data structure built upon the linked list created by me.
+ *
+ *//** @file queue.h *//*
+ *
+ ********************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include "queue.h"
